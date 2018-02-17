@@ -1,5 +1,19 @@
-var socketScript = document.createElement('script');
-socketScript.setAttribute('src', 'https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js');
-document.head.appendChild(socketScript);
 var socket = io('localhost:3000');
-console.log('init');
+let id = localStorage.getItem("id");
+if (!id) {
+  socket.emit('requestID', {});
+} else {
+  console.log('id');
+  socket.emit('id', {
+    id: id
+  });
+}
+console.log('init', id);
+socket.on('assignID', function(data) {
+  console.log(data.id);
+  id = data.id
+  localStorage.setItem("id", data.id);
+  socket.emit('id', {
+    id: id
+  });
+})
