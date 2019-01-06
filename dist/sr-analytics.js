@@ -38,11 +38,11 @@ window.SR = function (c) {
       this.uid = user.uid;
       //console.log(this.uid)
       db.ref(`${baseUrl}/users/${this.uid}/stats`).set({
-          id: this.uid,
-          version:this.version,
-          lastSeen: time,
+        id: this.uid,
+        version:this.version,
+        lastSeen: time,
         lastIp: ip
-        })
+      })
       let sessionRef = db.ref(`${baseUrl}/users/${this.uid}/times`).push()
       sessionRef.set({
         id: this.uid,
@@ -50,7 +50,7 @@ window.SR = function (c) {
         time: time,
         ip: ip
       })
-    // console.log(sessionRef.key)
+      // console.log(sessionRef.key)
       db.ref(`${baseUrl}/users/${this.uid}/times/${sessionRef.key}/timeOff`).set(new Date().getTime())
     }
   });
