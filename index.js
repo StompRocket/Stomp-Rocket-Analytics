@@ -1,79 +1,57 @@
-require('./object-watch.js')
-var express = require('express')
-var app = require('express')();
-var http = require('http').Server(app);
-var io = require('socket.io')(http);
-var admin = require("firebase-admin");
+window.SR = function (c) {
 
-var serviceAccount = require("./sr-analytics-a968c-firebase-adminsdk-q3ulc-a1901f7d4d.json");
+  this.version = c.version;
+  this.appId = c.appId
+  if (c.config) {
+    this.config = c.config
+  } else {
+    this.config = {
+      apiKey: "AIzaSyBGxpBaFvFlgF94z6aXfCO1s4tT7NeXP9c",
+      authDomain: "sr-analytics-a968c.firebaseapp.com",
+      databaseURL: "https://sr-analytics-a968c.firebaseio.com",
+      projectId: "sr-analytics-a968c",
+      storageBucket: "sr-analytics-a968c.appspot.com",
+      messagingSenderId: "857744111888"
+    }
+  }
+  console.log(`Stomp Rocket Analytics app version ${this.version}, app id ${this.appId}`)
+  let sr = firebase.initializeApp(this.config);
+  let db = sr.database()
+  let baseUrl = `apps/${this.appId}`
+  let ip
+  fetch('https://api.ipify.org?format=json')
+  .then((resp) => resp.json()) // Transform the data into json
+  .then(data => {
+    // Create and append the li's to the ul
+    ip = data
+  })
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://sr-analytics-a968c.firebaseio.com"
-});
-var db = admin.database();
-var data = {};
-var ref = db.ref("analytics");
-// Attach an asynchronous callback to read the data at our posts reference
-ref.on("value", function(snapshot) {
-  console.log(snapshot.val());
-  data = snapshot.val().data
-}, function(errorObject) {
-  console.log("The read failed: " + errorObject.code);
-});
-
-
-
-
-function makeid() {
-  var text = "";
-  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-
-  for (var i = 0; i < 100; i++)
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-
-  return text;
-}
-
-function updateDB(path, data) {
-  let updateRef = db.ref('analytics/data/')
-  console.log(`updateDB path: ${'analytics/data/' + path} data: ${data}`);
-  updateRef.update({
-    [path]: data
+  firebase.auth().signInAnonymously().catch(function (error) {
+    // Handle Errors here.
+    var errorCode = error.code;
+    var errorMessage = error.message;
+    // ...
+  });
+  firebase.auth().onAuthStateChanged((user) => {
+    let time = new Date().getTime();
+    if (user) {
+      this.uid = user.uid;
+      //console.log(this.uid)
+      db.ref(`${baseUrl}/users/${this.uid}/stats`).set({
+          id: this.uid,
+          version:this.version,
+          lastSeen: time,
+        lastIp: ip
+        })
+      let sessionRef = db.ref(`${baseUrl}/users/${this.uid}/times`).push()
+      sessionRef.set({
+        id: this.uid,
+        version: this.version,
+        time: time,
+        ip: ip
+      })
+    // console.log(sessionRef.key)
+      db.ref(`${baseUrl}/users/${this.uid}/times/${sessionRef.key}/timeOff`).set(new Date().getTime())
+    }
   });
 }
-
-app.use(express.static('client'))
-
-io.on('connection', (socket) => {
-  console.log('a user connected', data);
-  data.currentUsers++
-    updateDB('currentUsers', data.currentUsers)
-  socket.on('requestID', function(payload) {
-    io.emit('assignID', {
-      id: makeid()
-    });
-
-  });
-  socket.on('id', function(payload) {
-    data.users.push({
-      [payload.id]: {
-        online: true
-      }
-    })
-    console.log(data);
-    console.log(payload.id, payload.users[data.id].online)
-  });
-  socket.on('disconnect', function() {
-    console.log('user disconnected');
-    data.currentUsers--
-      updateDB('currentUsers', data.currentUsers)
-  });
-});
-
-setTimeout(() => {
-  console.log(data);
-  http.listen(3000, function() {
-    console.log('listening on *:3000');
-  });
-}, 1000);
